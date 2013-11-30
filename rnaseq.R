@@ -1,5 +1,5 @@
-len  <- c(530, 840, 930) #lengths of the transcripts
-M  <- matrix(c(1, 1, 1, 0, 1, 1, 0, 0, 1), byrow=TRUE, ncol=3) 
+len  <- c(530, 840, 930, 930) #lengths of the transcripts
+M  <- matrix(c(1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1), byrow=TRUE, ncol=4) 
 k  <- c(1666, 896, 81) #counts for each set
 
 NITER=1024
@@ -78,15 +78,30 @@ RunGibbs  <- function(mt, M, k, len) {
 
 PlotTraces <- function(trace_em, trace_gibbs) {
   nt  <- nrow(trace_em)
-  t  <- as.vector(Map(rep, paste("t", 1:nt, sep=""), 1024))
+  #nt  <- 1
+  tr  <- as.factor(unlist(Map(rep, paste("t", 1:nt, sep=""), NITER)))
+  #tr  <- rep("t1", NITER)
+  unname(tr)
   em.traces  <- as.vector(t(trace_em))
   gibbs.traces  <- as.vector(t(trace_gibbs))
   traces  <- c(gibbs.traces, em.traces)
   alg  <- c(rep("gibbs", nt*NITER), rep("em", nt*NITER))
-  g  <- data.frame(vals=traces, t=t, alg=alg, n=1:1024, each=1024)
-  ggplot(data=g, aes(x=n, y=vals)) + geom_line(aes(colour=t, linetype=alg)) + scale_linetype_manual(values = c("dashed", "solid"))
-  
+  g  <- data.frame(vals=traces, tr=tr, alg=alg, n=1:NITER, each=NITER)
+  ggplot(data=g, aes(x=n, y=vals)) + geom_line(aes(colour=tr, linetype=alg)) + 
+    scale_linetype_manual(values = c("dashed", "solid"))
 }
+
+# firstly run EM algorithm to ge initial estimates for mu
+# use the EM values as initial values for the Gibbs sampling
+# then plot the traces
+
+trace_em  <- RunEM(k, M, len)
+mt  <- trace_em[, NITER]
+trace_gibbs  <- RunGibbs(mt, M, k, len)
+PlotTraces(trace_em, trace_gibbs)
+
+
+# TODO some more experimenting with 4 transcripts with t3 and t4 being identical
 
 
 
