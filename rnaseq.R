@@ -4,6 +4,11 @@ k  <- c(1666, 896, 81) #counts for each set
 
 NITER=1024
 
+std  <- function(X) {
+  stdev  <- sd(X)
+  return(stdev/ sqrt(length(X)))
+}
+
 GetInitialParams  <- function(k, M, len) {
   # Compute the initial parameters m which
   # correspond to the maximum likelihood estimates
@@ -32,7 +37,7 @@ RunEM <- function(k, M, len) {
 
 SampleObs  <-  function(mt, M, k) {
   X  <- matrix(byrow=TRUE, nrow=nrow(M), ncol=ncol(M))
-  p  <- matrix(rep(mt, 3), byrow=TRUE, ncol=3) * M
+  p  <- matrix(rep(mt, 3), byrow=TRUE, ncol=ncol(M)) * M
   
   for (i in 1:nrow(X)) {
     prob  <- p[i, ]/sum(p[i, ])
@@ -73,12 +78,13 @@ RunGibbs  <- function(mt, M, k, len) {
 }
 
 PlotTraces <- function(trace_em, trace_gibbs) {
+  nt  <- nrow(trace_em)
+  t  <- as.vector(Map(rep, paste("t", 1:nt, sep=""), 1024))
   em.traces  <- as.vector(t(trace_em))
   gibbs.traces  <- as.vector(t(trace_gibbs))
   traces  <- c(gibbs.traces, em.traces)
-  t  <- rep(c(rep('t1', 1024), rep('t2', 1024), rep('t3', 1024)), 2)
-  alg  <- c(rep("gibbs", 3072), rep("em", 3072))
-  g  <- data.frame(vals=traces, t=rep(c(rep('t1', 1024), rep('t2', 1024), rep('t3', 1024)), 2), alg=alg, n=1:1024, each=1024)
+  alg  <- c(rep("gibbs", nt*NITER), rep("em", nt*NITER))
+  g  <- data.frame(vals=traces, t=t, alg=alg, n=1:1024, each=1024)
   ggplot(data=g, aes(x=n, y=vals)) + geom_line(aes(colour=t, linetype=alg)) + scale_linetype_manual(values = c("dashed", "solid"))
   
 }
