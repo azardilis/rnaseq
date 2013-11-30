@@ -59,7 +59,6 @@ SampleParams  <- function(X, len) {
   }
   
   return(mt)
-  
 }
 
 RunGibbs  <- function(mt, M, k, len) {
