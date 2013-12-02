@@ -1,8 +1,10 @@
-len  <- c(530, 840, 930, 930) #lengths of the transcripts
-M  <- matrix(c(1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1), byrow=TRUE, ncol=4) 
+len  <- c(530, 840, 930) #lengths of the transcripts
+M  <- matrix(c(1, 1, 1, 0, 1, 1, 0, 0, 1), byrow=TRUE, ncol=3) 
 k  <- c(1666, 896, 81) #counts for each set
+lf  <- 50
 
 NITER=1024
+#NITER = 4096
 
 std  <- function(X) {
   stdev  <- sd(X)
@@ -76,6 +78,14 @@ RunGibbs  <- function(mt, M, k, len) {
   return(trace_gibbs)
 }
 
+RunGibbs1  <- function(mt, M, k, len) {
+  trace_gibbs  <- matrix(nrow=ncol(M), ncol=NITER)
+  X  <- SampleObs(mt, M, k)
+  m  <- SampleParams(X, len)
+  
+  
+}
+
 PlotTraces <- function(trace_em, trace_gibbs) {
   nt  <- nrow(trace_em)
   #nt  <- 1
@@ -91,15 +101,27 @@ PlotTraces <- function(trace_em, trace_gibbs) {
     scale_linetype_manual(values = c("dashed", "solid"))
 }
 
+GetNormLength  <- function(lt) {
+  mf  <- 180
+  sdf  <- 30
+  lr  <- 30
+  
+  poss.fl  <- seq(lr, lt)
+  nl  <- sum(dnorm(poss.fl, mean=mf, sd=sdf) * (lt-poss.fl+1))
+  
+  return(floor(nl))
+}
+
 # firstly run EM algorithm to ge initial estimates for mu
 # use the EM values as initial values for the Gibbs sampling
 # then plot the traces
 
+#first normalise the lengths
+#len  <- sapply(len, GetNormLength)
+print(len)
 trace_em  <- RunEM(k, M, len)
 mt  <- trace_em[, NITER]
 trace_gibbs  <- RunGibbs(mt, M, k, len)
-PlotTraces(trace_em, trace_gibbs)
-
 
 # TODO some more experimenting with 4 transcripts with t3 and t4 being identical
 
