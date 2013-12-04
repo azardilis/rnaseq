@@ -78,14 +78,6 @@ RunGibbs  <- function(mt, M, k, len) {
   return(trace_gibbs)
 }
 
-RunGibbs1  <- function(mt, M, k, len) {
-  trace_gibbs  <- matrix(nrow=ncol(M), ncol=NITER)
-  X  <- SampleObs(mt, M, k)
-  m  <- SampleParams(X, len)
-  
-  
-}
-
 PlotTraces <- function(trace_em, trace_gibbs) {
   nt  <- nrow(trace_em)
   #nt  <- 1
