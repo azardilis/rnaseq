@@ -1,18 +1,18 @@
-len  <- c(530, 840, 930) #lengths of the transcripts
-M  <- matrix(c(1, 1, 1, 0, 1, 1, 0, 0, 1), byrow=TRUE, ncol=3) 
-k  <- c(1666, 896, 81) #counts for each set
-lf  <- 50
-
-NITER=1024
-#NITER = 4096
-
 std  <- function(X) {
-  stdev  <- sd(X)
-  return(stdev/ sqrt(length(X)))
+  # Computes the standard error for either a matrix X in
+  # which case it computer it along the rows or a vector X
+  if (is.null(dim(X))) {
+    stdev  <- sd(X)
+    se  <- stdev/ sqrt(length(X))
+  } else {
+    stdev  <- apply(X, 1, sd)
+    se  <- stdev / sqrt(length(X[1, ]))
+  }
+  return(se)
 }
 
 GetInitialParams  <- function(k, M, len) {
-  # Compute the initial parameters m which
+  # Computes the initial parameters m which
   # correspond to the maximum likelihood estimates
   # given the model
   mt  <- ((k / rowSums(M)) %*% M) / len
@@ -78,24 +78,22 @@ RunGibbs  <- function(mt, M, k, len) {
   return(trace_gibbs)
 }
 
-PlotTraces <- function(trace_em, trace_gibbs) {
-  nt  <- nrow(trace_em)
-  #nt  <- 1
-  tr  <- as.factor(unlist(Map(rep, paste("t", 1:nt, sep=""), NITER)))
-  #tr  <- rep("t1", NITER)
-  unname(tr)
+PlotTraces <- function(trace_em, trace_gibbs, tr) {
+  nt  <- nrow(trace_gibbs)
   em.traces  <- as.vector(t(trace_em))
   gibbs.traces  <- as.vector(t(trace_gibbs))
   traces  <- c(gibbs.traces, em.traces)
-  alg  <- c(rep("gibbs", nt*NITER), rep("em", nt*NITER))
-  g  <- data.frame(vals=traces, tr=tr, alg=alg, n=1:NITER, each=NITER)
-  ggplot(data=g, aes(x=n, y=vals)) + geom_line(aes(colour=tr, linetype=alg)) + 
-    scale_linetype_manual(values = c("dashed", "solid"))
+  alg  <- c(rep("Gibbs", nt*NITER), rep("EM", nt*NITER))
+  g  <- data.frame(mu=traces, tr=tr, alg=alg, n=1:NITER, each=NITER)
+  ggplot(data=g, aes(x=n, y=mu)) + geom_line(aes(colour=tr, linetype=alg)) + 
+    scale_linetype_manual(values = c("dashed", "solid")) + xlab("iteration")
 }
 
-GetNormLength  <- function(lt) {
+GetEffLength  <- function(lt) {
+  # Returns the expected number of positions that 
+  # a fragment can start from along the transcript
   mf  <- 180
-  sdf  <- 30
+  sdf  <- 25
   lr  <- 30
   
   poss.fl  <- seq(lr, lt)
@@ -104,22 +102,36 @@ GetNormLength  <- function(lt) {
   return(floor(nl))
 }
 
-# firstly run EM algorithm to ge initial estimates for mu
-# use the EM values as initial values for the Gibbs sampling
-# then plot the traces
+RunExp1  <- function() {
+  # Runs the first experiment with the 3 initial transcripts
+  # and plots the traces obtained from EM and Gibbs algorithms
+  NITER=1024
+  len  <- c(530, 840, 930) #lengths of the transcripts
+  M  <- matrix(c(1, 1, 1, 0, 1, 1, 0, 0, 1), byrow=TRUE, ncol=3) 
+  k  <- c(1666, 896, 81) #counts for each set
+  trace_em  <- RunEM(k, M, len)
+  mt  <- trace_em[, NITER]
+  trace_gibbs  <- RunGibbs(mt, M, k, len)
+  
+  nt  <- nrow(trace_em)
+  tr  <- as.factor(unlist(Map(rep, paste("transcript", 1:nt, sep=""), NITER)))
+  PlotTraces(trace_em, trace_gibbs, tr)
+  
+}
 
-#first normalise the lengths
-#len  <- sapply(len, GetNormLength)
-print(len)
-trace_em  <- RunEM(k, M, len)
-mt  <- trace_em[, NITER]
-trace_gibbs  <- RunGibbs(mt, M, k, len)
-
-# TODO some more experimenting with 4 transcripts with t3 and t4 being identical
-
-
-
-
-
-
+RunExp2  <- function() {
+  # Runs the second experiment with the 2 identical transcripts
+  # and plots the traces obtained from EM and Gibbs algorithms
+  NITER=1024
+  len  <- c(530, 840, 930, 930) #lengths of the transcripts
+  M  <- matrix(c(1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1), byrow=TRUE, ncol=4) 
+  k  <- c(1666, 896, 81) #counts for each set
+  trace_em  <- RunEM(k, M, len)
+  mt  <- trace_em[, NITER]
+  trace_gibbs  <- RunGibbs(mt, M, k, len)
+  ident_em  <- rbind(trace_em[3:4, ], trace_em[3, ]+trace_em[4,])
+  ident_gibbs  <- rbind(trace_gibbs[3:4, ], trace_gibbs[3, ]+trace_gibbs[4, ])
+  tr  <- as.factor(c(rep("transcript 3", NITER), rep("transcript 4", NITER), rep("transcript 3 + transcript 4", NITER)))
+  PlotTraces(ident_em, ident_gibbs, tr) 
+}
 
