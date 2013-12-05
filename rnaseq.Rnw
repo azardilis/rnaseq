@@ -11,7 +11,7 @@
 \usepackage{listings}
 \usepackage{amsmath}
 \usepackage{multirow}
-\usepackage[margin=0.95in]{geometry}
+\usepackage[margin=-0.95in]{geometry}
 
 \bibliographystyle{unsrt}
 \author{Argyris Zardilis\\ \texttt{az325@cam.ac.uk}}
@@ -23,7 +23,7 @@ library(ggplot2)
 source("rnaseq.R")
 @
 \maketitle
-
+The goal of this assignment was the estimation of expression levels from set of reads mapped to regions that correspond to multiple transcripts forming groups. The algorithms used for this problem are from ~\cite{turro2011haplotype}.
 \section{Algorithm Traces}
 Using a Poisson model for transcript reads , $r_t\sim Poisson(\mu_t \l_t)$ and distributing the reads from set $i$ to all the transcripts in the set where $M_{it}=1$, the maximum likelihood estimate for the models expression level parameters is: $\mu_t = (\sum\limits_{i} M_{it}X_{it}) / l_t$. The initial parameters obtained were:
 <<echo=FALSE>>=
@@ -104,6 +104,6 @@ GetEffLength  <- function(lt) {
 
 len  <- sapply(len, GetEffLength)
 @
-
+\bibliography{rnaseq}
 
 \end{document}
