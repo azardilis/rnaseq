@@ -1,0 +1,109 @@
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{fullpage}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage[margin=0.95in]{geometry}
+
+\bibliographystyle{unsrt}
+\author{Argyris Zardilis\\ \texttt{az325@cam.ac.uk}}
+\title{Statistical Analysis of RNA sequencing data}
+
+\begin{document}
+<<echo=FALSE>>=
+library(ggplot2)
+source("rnaseq.R")
+@
+\maketitle
+
+\section{Algorithm Traces}
+Using a Poisson model for transcript reads , $r_t\sim Poisson(\mu_t \l_t)$ and distributing the reads from set $i$ to all the transcripts in the set where $M_{it}=1$, the maximum likelihood estimate for the models expression level parameters is: $\mu_t = (\sum\limits_{i} M_{it}X_{it}) / l_t$. The initial parameters obtained were:
+<<echo=FALSE>>=
+NITER=1024
+len  <- c(530, 840, 930) #lengths of the transcripts
+M  <- matrix(c(1, 1, 1, 0, 1, 1, 0, 0, 1), byrow=TRUE, ncol=3) 
+k  <- c(1666, 896, 81) #counts for each set
+GetInitialParams(k, M, len)
+@
+I ran the EM algorithm with those initial values and the Bayesian algorithm with initial values the final values of the EM algorithm, both with $1024$ iterations. The traces of the runs can be seen in Figure~\ref{fig:traces3}. The standard errors of the means of the samples for each transcript obtained from the Gibbs sampling process are: 
+<<echo=FALSE>>=
+trace_em  <- RunEM(k, M, len)
+mt  <- trace_em[, NITER]
+trace_gibbs  <- RunGibbs(mt, M, k, len)
+std(trace_gibbs)
+@
+\begin{figure}[!ht]
+\centering
+<<echo=FALSE, fig.align='center', fig.width=8,fig.height=4, warning=FALSE>>=
+nt  <- nrow(trace_em)
+tr  <- as.factor(unlist(Map(rep, paste("transcript", 1:nt, sep=""), NITER)))
+PlotTraces(trace_em, trace_gibbs, tr)
+@
+\caption{Traces for the EM and Gibbs sampling algorithms.}
+\end{figure}
+\label{fig:traces3}
+
+
+\section{Unidentifiability}
+The goal of this part of the assignment was to investigate the effects of adding an additional fourth transcript to the model which is identical to the third transcript. To do that I changed the indicator matrix \texttt{M} and the vector containing the lengths of the transcripts \texttt{len}:
+<<>>=
+len  <- c(530, 840, 930, 930) #lengths of the transcripts
+M  <- matrix(c(1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1), byrow=TRUE, ncol=4) 
+@
+I then ran the Gibbs algorithm again after obtaining its initial values from the final values of the EM algorithm. The traces of the algorithm for the two identical transcripts(3 and 4) can be seen in Figure~\ref{fig:traces34}.
+\begin{figure}[!ht]
+\centering
+<<echo=FALSE, fig.align='center', fig.width=9,fig.height=5,  warning=FALSE>>=
+k  <- c(1666, 896, 81) #counts for each set
+trace_em  <- RunEM(k, M, len)
+mt  <- trace_em[, NITER]
+trace_gibbs  <- RunGibbs(mt, M, k, len)
+ident_em  <- rbind(trace_em[3:4, ], trace_em[3, ]+trace_em[4,])
+ident_gibbs  <- rbind(trace_gibbs[3:4, ], trace_gibbs[3, ]+trace_gibbs[4, ])
+tr  <- as.factor(c(rep("transcript 3", NITER), rep("transcript 4", NITER), rep("transcript 3 + transcript 4", NITER)))
+PlotTraces(ident_em, ident_gibbs, tr)
+@
+\caption{Traces for identical transcripts and their sum.}
+\label{fig:traces34}
+\end{figure}
+ The samples obtained by the Gibbs sampling process for the identical transcripts fluctuate more than the samples obtained for the other transcripts and the samples obtained from the previous experiment(without identical transcripts).  This is also reflected in the standard error of the mean. While the standard error of the mean remained in the same levels for transcripts 1 and 2, it shows a significant increase for transcript 3 and the new transcript 4:
+ <<>>=
+std(trace_gibbs) #standard error for transcripts
+@
+From the plots we can also see that the traces for the identical transcripts are anti-correlated. This is also shown by numerically obtaining the correlation between the two:
+<<>>=
+cor(trace_gibbs[3, ], trace_gibbs[4, ])
+@
+One way to overcome this uncertainty created by the two transcripts 'competing' for the reads is to increase the number of iterations which will give better estimates for the mean. The standard error of the mean, defined as $s/\sqrt{n}$ where $s$ is the sample standard deviation and $n$ the size of the sample, is inversely proportional to the size of the sample so increasing the sample size(number of iterations) will decrease the standard error of our mean estimator. Another way to improve our estimates without losing information is to estimate the sum expression levels of transcripts 3 and 4. From the properties of variance, the variance of the sum of transcripts 3 and 4 is $Var(t_{3} + t_{4}) = Var(t_3) + Var(t_4) + 2Cov(t_3 + t_4)$ where $t_3$ and $t_4$ are the random variables for the expression measures for transcript 3 and 4 respectively. Because they are strongly negatively correlated the variance of their sum is smaller than the sum of their variances and their individual variances as well. This can be seen graphically in Figure~\ref{fig:traces34} and it is also confirmed numerically by calculating the standard error of the mean of the sum of the sample expression levels for transcripts 3 and 4 which shows a decrease from the standard errors shown above:
+<<>>=
+std(trace_gibbs[3, ]+trace_gibbs[4, ])
+@
+
+\section{Accounting for fragment size distribution}
+So far I have assumed a fixed fragment and read size of 1 which is not realistic. The underlying model used so far for the number of reads for a transcript $t_{i}$ is $r_{t_i} \sim Poisson(l_t \mu_{t})$. This assumes that every possible starting position for a fragment in the transcript produces reads with rate equal to the expression level of that transcript. Since the fragment size was one, the number of possible starting positions for a fragment along the transcript was equal to the transcript length $l_t$. When we increase the size of the transcript to a fixed value of $l_f$ then the number of starting positions for a fragment becomes $\tilde{l_t} = l_t - l_f + 1$ which gives the model: $r_{t_i} \sim Poisson(\tilde{l_t} \mu_{t})$ with $\tilde{l_t}$ being now the effective transcript length as opposed to the real physical transcript length $l_t$. The number of reads for a transcript are unchanged so the estimated for the $\mu_{t}$ for the transcripts will be greater to 'compensate' for the decreased length. If in fact the fragment length is not fixed but varies then we can assign probabilities to each possible fragment length according to the distribution they follow and let the effective transcript length be the expected number of fragment starting positions along the transcript defined as $\tilde{l_t} = \sum\limits_{l_f=l_r}^{l_t} (p(l_f|l_t) (l_t-l_f+1))$. The fragment size cannot be smaller than the read size when using paired-end reads so we have a lower fragment size value of $l_r$. Then the only change we need to make in the code to incorporate this variable fragment length is to calculate the effective transcripts length $\tilde{l_t}$ for all transcripts and use those in subsequent calculations instead of the real physical transcripts lengths $l_t$. Here I provide some code that calculates the effective length of a transcript $\tilde{l_t}$ give $l_t$ assuming a distribution $p(l_f|l_t) \sim N(\mu=180, \sigma=25)$ and a read length $l_r=30$:
+
+<<>>=
+GetEffLength  <- function(lt) {
+  mf  <- 180
+  sdf  <- 25
+  lr  <- 30
+  
+  poss.fl  <- seq(lr, lt)
+  nl  <- sum(dnorm(poss.fl, mean=mf, sd=sdf) * (lt-poss.fl+1))
+  
+  return(floor(nl))
+}
+
+len  <- sapply(len, GetEffLength)
+@
+
+
+\end{document}
